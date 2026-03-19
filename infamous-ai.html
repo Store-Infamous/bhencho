@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Infamous AI — Elite Code Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0c0e12; --surface: #0f1117; --surface-raised: #161b24; --code-bg: #080a0e;
+      --border: #1e2533; --sidebar-bg: #0b0d11; --sidebar-border: #181e2a;
+      --primary: #00e5ff; --primary-dim: rgba(0,229,255,0.1); --primary-border: rgba(0,229,255,0.3);
+      --foreground: #dde4ee; --muted: #4a5568; --destructive: #e53e3e;
+      --amber: #f6c90e; --violet: #a78bfa; --radius: 0.75rem;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--foreground); font-size: 14px; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,229,255,0.4); }
+    .grid-bg { position:fixed;inset:0;pointer-events:none;opacity:0.03;background-image:linear-gradient(var(--primary) 1px,transparent 1px),linear-gradient(90deg,var(--primary) 1px,transparent 1px);background-size:40px 40px; }
+    .page { display: none; }
+    .page.active { display: flex; flex-direction: column; height: 100vh; }
+    /* AUTH */
+    #auth-page { align-items: center; justify-content: center; padding: 1rem; }
+    .auth-box { width: 100%; max-width: 360px; }
+    .auth-logo { text-align: center; margin-bottom: 2rem; }
+    .auth-icon { width:48px;height:48px;margin:0 auto 0.75rem;border-radius:1rem;background:var(--primary-dim);border:1px solid var(--primary-border);display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 0 40px rgba(0,229,255,0.1); }
+    .text-gradient { background:linear-gradient(135deg,#00e5ff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+    .auth-card { background:var(--surface);border:1px solid var(--border);border-radius:1.25rem;padding:1.5rem;box-shadow:0 25px 50px rgba(0,0,0,0.5); }
+    .tab-row { display:flex;border:1px solid var(--border);border-radius:0.75rem;overflow:hidden;margin-bottom:1.5rem;background:var(--bg); }
+    .tab-btn { flex:1;padding:0.5rem;font-size:0.8rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.2s;font-family:inherit; }
+    .tab-btn.active { background:var(--primary);color:var(--bg); }
+    .form-group { margin-bottom:1rem; }
+    label { display:block;font-size:0.72rem;font-weight:500;color:var(--muted);margin-bottom:0.4rem; }
+    .input { width:100%;background:var(--bg);border:1px solid var(--border);border-radius:0.75rem;padding:0.6rem 1rem;font-size:0.85rem;color:var(--foreground);outline:none;transition:border-color 0.2s;font-family:inherit; }
+    .input:focus { border-color:rgba(0,229,255,0.5); }
+    .input::placeholder { color:var(--muted);opacity:0.5; }
+    .pass-wrap { position:relative; }
+    .pass-wrap .input { padding-right:2.5rem; }
+    .pass-toggle { position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:0.9rem;background:none;border:none; }
+    .btn-primary { width:100%;padding:0.65rem;border-radius:0.75rem;background:var(--primary);color:var(--bg);font-weight:700;font-size:0.85rem;cursor:pointer;border:none;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-top:0.5rem;font-family:inherit; }
+    .btn-primary:hover { opacity:0.9; }
+    .btn-primary:disabled { opacity:0.4;cursor:not-allowed; }
+    .back-link { text-align:center;font-size:0.72rem;color:var(--muted);margin-top:1rem; }
+    .back-link a { color:var(--muted);text-decoration:none;transition:color 0.2s; }
+    .back-link a:hover { color:var(--primary); }
+    .spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:var(--bg);border-radius:50%;animation:spin 0.7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .toast { position:fixed;bottom:1rem;right:1rem;padding:0.75rem 1.25rem;border-radius:0.75rem;font-size:0.8rem;font-weight:500;z-index:9999;max-width:320px;animation:slideUp 0.3s ease;box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+    .toast.success { background:rgba(0,229,255,0.15);border:1px solid rgba(0,229,255,0.3);color:var(--primary); }
+    .toast.error { background:rgba(229,62,62,0.15);border:1px solid rgba(229,62,62,0.3);color:#fc8181; }
+    @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    /* CHAT */
+    #chat-page { flex-direction: row; }
+    .sidebar { width:256px;flex-shrink:0;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;height:100%;transition:transform 0.2s;z-index:40; }
+    .sidebar-top { padding:1rem;border-bottom:1px solid var(--sidebar-border); }
+    .logo-row { display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem; }
+    .logo-icon { width:28px;height:28px;border-radius:0.5rem;background:var(--primary-dim);border:1px solid var(--primary-border);display:flex;align-items:center;justify-content:center;font-size:0.7rem; }
+    .logo-text { font-size:0.7rem;font-weight:700;letter-spacing:0.12em; }
+    .new-chat-btn { width:100%;display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;border-radius:0.75rem;background:var(--primary-dim);border:1px solid var(--primary-border);color:var(--primary);font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:inherit; }
+    .new-chat-btn:hover { background:rgba(0,229,255,0.15); }
+    .conv-list { flex:1;overflow-y:auto;padding:0.5rem; }
+    .conv-item { display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;border-radius:0.75rem;cursor:pointer;transition:all 0.2s;font-size:0.75rem;color:#8899aa; }
+    .conv-item:hover,.conv-item.active { background:rgba(255,255,255,0.04); }
+    .conv-item.active { border:1px solid var(--sidebar-border); }
+    .conv-title { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .conv-delete { opacity:0;color:var(--muted);cursor:pointer;background:none;border:none;font-size:0.9rem;transition:opacity 0.2s;padding:2px; }
+    .conv-item:hover .conv-delete { opacity:1; }
+    .conv-delete:hover { color:var(--destructive); }
+    .conv-empty { text-align:center;padding:2rem 1rem;color:var(--muted);font-size:0.75rem; }
+    .sidebar-bottom { padding:1rem;border-top:1px solid var(--sidebar-border); }
+    .usage-row { display:flex;justify-content:space-between;font-size:0.65rem;color:var(--muted);margin-bottom:0.4rem; }
+    .usage-bar { height:6px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden;margin-bottom:0.75rem; }
+    .usage-fill { height:100%;background:var(--primary);border-radius:999px;transition:width 0.3s; }
+    .usage-fill.danger { background:var(--destructive); }
+    .plan-badge { display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.75rem;border-radius:0.75rem;border:1px solid var(--border);margin-bottom:0.75rem; }
+    .plan-badge.dirt { background:rgba(246,201,14,0.06);border-color:rgba(246,201,14,0.25); }
+    .plan-badge.bedrock { background:rgba(167,139,250,0.06);border-color:rgba(167,139,250,0.25); }
+    .plan-name { font-size:0.65rem;font-weight:700;letter-spacing:0.08em; }
+    .plan-name.free { color:var(--muted); }
+    .plan-name.dirt { color:var(--amber); }
+    .plan-name.bedrock { color:var(--violet); }
+    .plan-msgs { font-size:0.65rem;color:var(--muted); }
+    .upgrade-link { font-size:0.65rem;font-weight:600;color:var(--primary);cursor:pointer;text-decoration:none;background:none;border:none;font-family:inherit; }
+    .user-row { display:flex;align-items:center;gap:0.5rem; }
+    .user-email { flex:1;min-width:0;font-size:0.65rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .signout-btn { flex-shrink:0;width:28px;height:28px;border-radius:0.5rem;cursor:pointer;background:none;border:none;color:var(--muted);transition:all 0.2s;display:flex;align-items:center;justify-content:center;font-size:0.9rem; }
+    .signout-btn:hover { background:rgba(255,255,255,0.05);color:var(--foreground); }
+    .chat-main { flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden; }
+    .mobile-header { display:none;align-items:center;justify-content:space-between;padding:0.75rem 1rem;border-bottom:1px solid var(--border);background:rgba(15,17,23,0.5); }
+    .burger-btn { background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:4px; }
+    .messages-area { flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:1rem; }
+    .empty-state { display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:1.5rem;padding-bottom:2rem;animation:fadeIn 0.3s ease; }
+    .empty-icon { width:56px;height:56px;border-radius:1rem;background:var(--primary-dim);border:1px solid var(--primary-border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;box-shadow:0 0 40px rgba(0,229,255,0.1); }
+    .starters { display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;width:100%;max-width:480px; }
+    .starter-btn { display:flex;align-items:center;gap:0.75rem;padding:0.75rem;border-radius:0.75rem;background:var(--surface);border:1px solid var(--border);cursor:pointer;text-align:left;transition:all 0.2s;font-family:inherit; }
+    .starter-btn:hover { border-color:var(--primary-border);background:var(--surface-raised); }
+    .starter-text { font-size:0.72rem;color:var(--muted);transition:color 0.2s; }
+    .starter-btn:hover .starter-text { color:var(--foreground); }
+    .msg-row { display:flex;gap:0.75rem;animation:fadeIn 0.25s ease; }
+    .msg-row.user { justify-content:flex-end; }
+    .msg-avatar { flex-shrink:0;width:28px;height:28px;border-radius:0.5rem;margin-top:4px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700; }
+    .msg-avatar.ai { background:var(--primary-dim);border:1px solid rgba(0,229,255,0.2);color:var(--primary); }
+    .msg-avatar.user-av { background:var(--surface-raised);border:1px solid var(--border);color:var(--muted); }
+    .msg-bubble { max-width:80%;border-radius:1rem;padding:0.75rem 1rem;font-size:0.85rem;line-height:1.6; }
+    .msg-bubble.user { background:var(--surface-raised);border:1px solid var(--border);border-top-right-radius:4px; }
+    .msg-bubble.ai { background:var(--surface);border:1px solid rgba(255,255,255,0.05);border-top-left-radius:4px;color:rgba(221,228,238,0.9); }
+    .msg-bubble code { font-family:'JetBrains Mono',monospace;background:var(--surface-raised);color:var(--primary);padding:0.1em 0.4em;border-radius:4px;font-size:0.8em; }
+    .code-block { background:var(--code-bg);border:1px solid var(--border);border-radius:0.6rem;overflow:hidden;margin:0.75rem 0; }
+    .code-header { display:flex;align-items:center;justify-content:space-between;padding:0.5rem 1rem;background:var(--surface-raised);border-bottom:1px solid var(--border); }
+    .code-lang { font-size:0.72rem;font-family:'JetBrains Mono',monospace;color:var(--muted); }
+    .copy-btn { display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--muted);background:none;border:none;cursor:pointer;transition:color 0.2s;font-family:inherit; }
+    .copy-btn:hover { color:var(--primary); }
+    pre code { display:block;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:0.8rem;line-height:1.6;overflow-x:auto;background:none!important;color:rgba(221,228,238,0.9)!important;white-space:pre; }
+    .typing-dots { display:flex;gap:5px;align-items:center;height:16px; }
+    .dot { width:6px;height:6px;border-radius:50%;background:rgba(0,229,255,0.6);animation:bounce 1.2s ease-in-out infinite; }
+    .dot:nth-child(2) { animation-delay:0.15s; }
+    .dot:nth-child(3) { animation-delay:0.3s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+    .cursor-blink { display:inline-block;width:6px;height:16px;background:var(--primary);border-radius:2px;animation:blink 1s step-end infinite;margin-left:2px;vertical-align:middle; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .error-box { display:flex;align-items:center;justify-content:center;gap:0.5rem;margin:0 auto;max-width:360px;background:rgba(229,62,62,0.08);border:1px solid rgba(229,62,62,0.25);border-radius:0.75rem;padding:0.75rem 1rem;font-size:0.75rem;color:#fc8181; }
+    .input-area { flex-shrink:0;padding:1rem;border-top:1px solid var(--border); }
+    .input-wrap { display:flex;align-items:flex-end;gap:0.5rem;background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:0.75rem 1rem;transition:border-color 0.2s; }
+    .input-wrap:focus-within { border-color:rgba(0,229,255,0.4); }
+    .chat-input { flex:1;background:transparent;border:none;outline:none;resize:none;font-size:0.85rem;color:var(--foreground);font-family:'Space Grotesk',sans-serif;line-height:1.5;min-height:24px;max-height:180px; }
+    .chat-input::placeholder { color:var(--muted);opacity:0.5; }
+    .send-btn { flex-shrink:0;width:32px;height:32px;border-radius:0.6rem;background:var(--primary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:0 0 40px rgba(0,229,255,0.1); }
+    .send-btn:hover { opacity:0.9; }
+    .send-btn:disabled { background:rgba(0,229,255,0.2);cursor:not-allowed; }
+    .send-btn svg { width:14px;height:14px;fill:var(--bg); }
+    .input-hint { text-align:center;font-size:0.65rem;color:var(--muted);margin-top:0.4rem; }
+    .modal-overlay { position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px); }
+    .modal-box { width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);border-radius:1.25rem;box-shadow:0 25px 50px rgba(0,0,0,0.6);animation:fadeIn 0.2s ease; }
+    .modal-header { display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border); }
+    .modal-header h2 { font-weight:700;font-size:1rem; }
+    .close-btn { background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px;transition:all 0.2s;font-size:1rem; }
+    .close-btn:hover { background:var(--surface-raised);color:var(--foreground); }
+    .modal-body { padding:1.25rem 1.5rem; }
+    .plan-grid { display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem; }
+    .plan-card { padding:1rem;border-radius:0.75rem;border:2px solid var(--border);cursor:pointer;transition:all 0.2s; }
+    .plan-card.selected.dirt { border-color:rgba(246,201,14,0.5);background:rgba(246,201,14,0.06); }
+    .plan-card.selected.bedrock { border-color:rgba(167,139,250,0.5);background:rgba(167,139,250,0.06); }
+    .plan-card-name { font-size:0.7rem;font-weight:700;letter-spacing:0.1em;margin-bottom:0.25rem; }
+    .plan-card-price { font-size:1.3rem;font-weight:900; }
+    .plan-card-msgs { font-size:0.7rem;color:var(--muted); }
+    .qr-placeholder { width:192px;height:192px;border:2px dashed var(--border);border-radius:0.75rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.5rem;color:var(--muted);font-size:0.75rem;text-align:center;padding:1rem; }
+    .modal-btn { width:100%;padding:0.65rem;border-radius:0.75rem;font-weight:700;font-size:0.85rem;cursor:pointer;border:none;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:0.5rem;font-family:inherit;margin-top:0.75rem; }
+    .modal-btn.dirt { background:var(--amber);color:#000; }
+    .modal-btn.bedrock { background:var(--violet);color:#fff; }
+    .modal-btn.outline { background:transparent;border:1px solid var(--border);color:var(--muted); }
+    .modal-btn.outline:hover { color:var(--foreground); }
+    .modal-btn:disabled { opacity:0.4;cursor:not-allowed; }
+    .success-state { text-align:center;padding:2rem 0; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .sidebar-overlay { display:none;position:fixed;inset:0;z-index:30;background:rgba(0,0,0,0.6); }
+    @keyframes pulse-soft { 0%,100%{opacity:0.6} 50%{opacity:1} }
+    @media(max-width:768px) {
+      .sidebar { position:fixed;top:0;left:0;height:100%;transform:translateX(-100%);z-index:40; }
+      .sidebar.open { transform:translateX(0); }
+      .sidebar-overlay.active { display:block; }
+      .mobile-header { display:flex; }
+      .starters { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<!-- AUTH PAGE -->
+<div id="auth-page" class="page active">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-icon">⚡</div>
+      <h1 class="text-gradient" style="font-size:1.4rem;font-weight:900;letter-spacing:0.05em;">INFAMOUS AI</h1>
+      <p id="auth-subtitle" style="font-size:0.8rem;color:var(--muted);margin-top:0.25rem;">Welcome back, developer</p>
+    </div>
+    <div class="auth-card">
+      <div class="tab-row">
+        <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Login</button>
+        <button class="tab-btn" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+      </div>
+      <form id="auth-form" onsubmit="handleAuth(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="auth-email" class="input" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="pass-wrap">
+            <input type="password" id="auth-pass" class="input" placeholder="Min 6 characters" required minlength="6" />
+            <button type="button" class="pass-toggle" onclick="togglePass()">👁</button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" id="auth-submit-btn">
+          <span id="auth-btn-text">Sign In</span>
+        </button>
+      </form>
+    </div>
+    <p class="back-link"><a href="javascript:void(0)" onclick="showLanding()">← Back to home</a></p>
+  </div>
+</div>
+
+<!-- LANDING PAGE -->
+<div id="landing-page" class="page" style="display:none;overflow-y:auto;height:100vh;">
+  <div style="position:relative;z-index:10;">
+    <header style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div class="auth-icon" style="width:32px;height:32px;font-size:0.85rem;margin:0;">⚡</div>
+        <span class="text-gradient" style="font-weight:700;letter-spacing:0.08em;font-size:0.9rem;">INFAMOUS AI</span>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <button onclick="goToAuth('login')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.85rem;font-family:inherit;padding:0.4rem 0.75rem;">Login</button>
+        <button onclick="goToAuth('signup')" style="background:var(--primary);color:var(--bg);border:none;border-radius:0.5rem;padding:0.4rem 1rem;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;">Get Started</button>
+      </div>
+    </header>
+    <section style="text-align:center;padding:4rem 1.5rem 3rem;">
+      <div style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;border-radius:999px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);margin-bottom:1.5rem;">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--primary);animation:pulse-soft 2s ease-in-out infinite;"></div>
+        <span style="font-size:0.72rem;color:var(--primary);font-weight:500;">Elite Code Generator · Legendary Output</span>
+      </div>
+      <h1 style="font-size:clamp(2.5rem,8vw,4.5rem);font-weight:900;line-height:1.1;margin-bottom:1rem;">
+        <span class="text-gradient">INFAMOUS</span><br/><span style="color:rgba(221,228,238,0.7);">AI</span>
+      </h1>
+      <p style="color:var(--muted);font-size:1.05rem;max-width:380px;margin:0 auto 2rem;">The AI built for developers. Ship clean, fast, production-ready code in seconds.</p>
+      <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+        <button onclick="goToAuth('signup')" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 1.5rem;border-radius:0.75rem;background:var(--primary);color:var(--bg);font-weight:700;border:none;cursor:pointer;font-size:0.9rem;font-family:inherit;">Start Free →</button>
+        <button onclick="goToAuth('login')" style="padding:0.75rem 1.5rem;border-radius:0.75rem;border:1px solid var(--border);background:transparent;color:var(--foreground);cursor:pointer;font-size:0.9rem;font-family:inherit;">Sign In</button>
+      </div>
+    </section>
+    <section style="padding:2rem 1.5rem 4rem;text-align:center;">
+      <h2 class="text-gradient" style="font-size:2rem;font-weight:900;margin-bottom:0.5rem;">Choose Your Plan</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:2rem;">Pay once. Upgrade anytime via UPI QR.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;max-width:800px;margin:0 auto;">
+        <div style="background:var(--surface);border:2px solid var(--border);border-radius:1.25rem;padding:1.5rem;">
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;color:var(--muted);">FREE</div>
+          <div style="font-size:2rem;font-weight:900;">Free</div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;">10 messages/day</div>
+          <button onclick="goToAuth('signup')" style="width:100%;padding:0.6rem;border-radius:0.6rem;border:1px solid var(--border);background:var(--surface-raised);color:var(--foreground);font-weight:600;cursor:pointer;font-family:inherit;">Start Free</button>
+        </div>
+        <div style="background:rgba(246,201,14,0.04);border:2px solid rgba(246,201,14,0.4);border-radius:1.25rem;padding:1.5rem;position:relative;">
+          <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid rgba(246,201,14,0.4);border-radius:999px;padding:2px 12px;font-size:0.65rem;font-weight:700;color:var(--amber);">POPULAR</div>
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;color:var(--amber);">DIRT</div>
+          <div style="font-size:2rem;font-weight:900;"><span style="font-size:1rem;">₹</span>69<span style="font-size:0.8rem;font-weight:400;color:var(--muted);">/mo</span></div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;">25 messages/day</div>
+          <button onclick="goToAuth('signup')" style="width:100%;padding:0.6rem;border-radius:0.6rem;border:none;background:var(--amber);color:#000;font-weight:700;cursor:pointer;font-family:inherit;">Get Dirt</button>
+        </div>
+        <div style="background:rgba(167,139,250,0.04);border:2px solid rgba(167,139,250,0.4);border-radius:1.25rem;padding:1.5rem;position:relative;">
+          <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid rgba(167,139,250,0.4);border-radius:999px;padding:2px 12px;font-size:0.65rem;font-weight:700;color:var(--violet);">ELITE</div>
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;color:var(--violet);">BEDROCK</div>
+          <div style="font-size:2rem;font-weight:900;"><span style="font-size:1rem;">₹</span>169<span style="font-size:0.8rem;font-weight:400;color:var(--muted);">/mo</span></div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;">50 messages/day</div>
+          <button onclick="goToAuth('signup')" style="width:100%;padding:0.6rem;border-radius:0.6rem;border:none;background:var(--violet);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;">Get Bedrock</button>
+        </div>
+      </div>
+      <p style="font-size:0.72rem;color:var(--muted);margin-top:1.5rem;">Pay via UPI QR inside the app · Activated within minutes</p>
+    </section>
+  </div>
+</div>
+
+<!-- CHAT PAGE -->
+<div id="chat-page" class="page">
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="logo-row">
+        <div class="logo-icon">⚡</div>
+        <span class="logo-text text-gradient">INFAMOUS AI</span>
+      </div>
+      <button class="new-chat-btn" onclick="newChat()">+ New Chat</button>
+    </div>
+    <div class="conv-list" id="conv-list"><div class="conv-empty">No chats yet</div></div>
+    <div class="sidebar-bottom">
+      <div class="usage-row"><span>Today</span><span id="usage-text">0/10 msgs</span></div>
+      <div class="usage-bar"><div class="usage-fill" id="usage-fill" style="width:0%"></div></div>
+      <div class="plan-badge" id="plan-badge">
+        <div><div class="plan-name free" id="plan-name-el">FREE</div><div class="plan-msgs" id="plan-msgs-el">10 msgs/day</div></div>
+        <button class="upgrade-link" id="upgrade-link-btn" onclick="openUpgrade()">Upgrade ›</button>
+      </div>
+      <div class="user-row">
+        <span class="user-email" id="user-email-el"></span>
+        <button class="signout-btn" onclick="signOut()" title="Sign out">↩</button>
+      </div>
+    </div>
+  </aside>
+  <div class="chat-main">
+    <div class="mobile-header">
+      <button class="burger-btn" onclick="toggleSidebar()">☰</button>
+      <span class="text-gradient" style="font-size:0.85rem;font-weight:700;">INFAMOUS AI</span>
+      <span id="mobile-usage" style="font-size:0.72rem;color:var(--muted);">0/10</span>
+    </div>
+    <div class="messages-area" id="messages-area">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">⚡</div>
+        <div style="text-align:center;">
+          <div class="text-gradient" style="font-size:1.1rem;font-weight:700;">Infamous AI</div>
+          <div style="font-size:0.75rem;color:var(--muted);">Ask me anything — I ship legendary code.</div>
+        </div>
+        <div class="starters">
+          <button class="starter-btn" onclick="sendStarter('Build a REST API in Node.js with Express')"><span>⚡</span><span class="starter-text">Build a REST API in Node.js with Express</span></button>
+          <button class="starter-btn" onclick="sendStarter('Create a responsive navbar in React + Tailwind')"><span>🎨</span><span class="starter-text">Create a responsive navbar in React + Tailwind</span></button>
+          <button class="starter-btn" onclick="sendStarter('Write a Python web scraper with BeautifulSoup')"><span>🔥</span><span class="starter-text">Write a Python web scraper with BeautifulSoup</span></button>
+          <button class="starter-btn" onclick="sendStarter('Implement JWT auth in JavaScript')"><span>🛡️</span><span class="starter-text">Implement JWT auth in JavaScript</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="chat-input" class="chat-input" placeholder="Ask me to build something..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
+          <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Shift+Enter for new line · Enter to send</div>
+    </div>
+  </div>
+</div>
+
+<!-- UPGRADE MODAL -->
+<div class="modal-overlay" id="upgrade-modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Upgrade Plan</h2>
+      <button class="close-btn" onclick="closeUpgrade()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG — Edit these values
+// ══════════════════════════════════════════
+const SUPABASE_URL = 'https://qeecyoasemaoxnybhrsx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlZWN5b2FzZW1hb3hueWJocnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTEwNjYsImV4cCI6MjA4OTQyNzA2Nn0.Hm_0pcRVYoKdZcdPuJ7oQ2zMXBBzjIG7bSRElgDczLg';
+const QR_DIRT    = ''; // e.g. 'dirt-qr.png'
+const QR_BEDROCK = ''; // e.g. 'bedrock-qr.png'
+// ══════════════════════════════════════════
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { storage: localStorage, persistSession: true, autoRefreshToken: true }
+});
+
+const PLAN_LIMITS = { free: 10, dirt: 25, bedrock: 50 };
+
+let currentUser = null, currentSession = null;
+let activeConvId = null, conversations = [], messages = [], isLoading = false;
+let profile = { plan: 'free', usedToday: 0 };
+
+// ── INIT ──
+sb.auth.onAuthStateChange(async (_event, session) => {
+  currentSession = session;
+  currentUser = session ? session.user : null;
+  if (currentUser) {
+    await loadProfile();
+    showPage('chat');
+  } else {
+    showPage('auth');
+  }
+});
+sb.auth.getSession().then(function(r) {
+  if (!r.data.session) showPage('auth');
+});
+
+// ── PAGES ──
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(function(p) {
+    p.classList.remove('active');
+    p.style.display = '';
+  });
+  var el = document.getElementById(page + '-page');
+  if (el) { el.classList.add('active'); }
+  if (page === 'chat') { renderSidebar(); updateUsageUI(); }
+}
+function showLanding() {
+  document.querySelectorAll('.page').forEach(function(p) {
+    p.classList.remove('active');
+  });
+  var l = document.getElementById('landing-page');
+  l.style.display = 'block';
+}
+function goToAuth(mode) {
+  showPage('auth');
+  switchTab(mode === 'signup' ? 'signup' : 'login');
+}
+
+// ── AUTH ──
+var authMode = 'login';
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+  document.getElementById('auth-subtitle').textContent = mode === 'signup' ? 'Create your account' : 'Welcome back, developer';
+  document.getElementById('auth-btn-text').textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
+}
+function togglePass() {
+  var inp = document.getElementById('auth-pass');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+async function handleAuth(e) {
+  e.preventDefault();
+  var email = document.getElementById('auth-email').value;
+  var pass = document.getElementById('auth-pass').value;
+  var btn = document.getElementById('auth-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  if (authMode === 'signup') {
+    var signupResult = await sb.auth.signUp({
+      email: email,
+      password: pass,
+      options: { emailRedirectTo: window.location.origin }
+    });
+    if (signupResult.error) {
+      showToast(signupResult.error.message, 'error');
+    } else if (signupResult.data && signupResult.data.session) {
+      // Auto-confirmed — already logged in via onAuthStateChange
+      showToast('Welcome to Infamous AI!', 'success');
+    } else {
+      // Should not happen with trigger, but fallback
+      showToast('Account created! Signing you in...', 'success');
+    }
+  } else {
+    var loginResult = await sb.auth.signInWithPassword({ email: email, password: pass });
+    if (loginResult.error) {
+      showToast(loginResult.error.message, 'error');
+    }
+  }
+
+  btn.disabled = false;
+  var btnText = authMode === 'signup' ? 'Create Account' : 'Sign In';
+  btn.innerHTML = '<span id="auth-btn-text">' + btnText + '</span>';
+}
+async function signOut() {
+  await sb.auth.signOut();
+  currentUser = null; currentSession = null;
+  activeConvId = null; conversations = []; messages = [];
+  showPage('auth');
+}
+
+// ── PROFILE ──
+async function loadProfile() {
+  if (!currentUser) return;
+  var today = new Date().toISOString().split('T')[0];
+  var results = await Promise.all([
+    sb.from('profiles').select('plan').eq('user_id', currentUser.id).single(),
+    sb.from('daily_usage').select('message_count').eq('user_id', currentUser.id).eq('date', today).single()
+  ]);
+  profile.plan = (results[0].data && results[0].data.plan) ? results[0].data.plan : 'free';
+  profile.usedToday = (results[1].data && results[1].data.message_count) ? results[1].data.message_count : 0;
+  await loadConversations();
+  updateUsageUI();
+}
+function updateUsageUI() {
+  var limit = PLAN_LIMITS[profile.plan] || 10;
+  var pct = Math.min((profile.usedToday / limit) * 100, 100);
+  document.getElementById('usage-text').textContent = profile.usedToday + '/' + limit + ' msgs';
+  document.getElementById('mobile-usage').textContent = profile.usedToday + '/' + limit;
+  var fill = document.getElementById('usage-fill');
+  fill.style.width = pct + '%';
+  fill.classList.toggle('danger', pct >= 100);
+  var planLabels = { free: 'FREE', dirt: '🪨 DIRT', bedrock: '⬛ BEDROCK' };
+  var el = document.getElementById('plan-name-el');
+  el.textContent = planLabels[profile.plan] || 'FREE';
+  el.className = 'plan-name ' + profile.plan;
+  document.getElementById('plan-msgs-el').textContent = limit + ' msgs/day';
+  document.getElementById('plan-badge').className = 'plan-badge ' + profile.plan;
+  document.getElementById('upgrade-link-btn').style.display = profile.plan === 'bedrock' ? 'none' : 'block';
+  if (currentUser) document.getElementById('user-email-el').textContent = currentUser.email;
+}
+
+// ── CONVERSATIONS ──
+async function loadConversations() {
+  if (!currentUser) return;
+  var r = await sb.from('conversations').select('id,title,updated_at').eq('user_id', currentUser.id).order('updated_at', { ascending: false });
+  conversations = r.data || [];
+  renderSidebar();
+}
+function renderSidebar() {
+  var list = document.getElementById('conv-list');
+  if (!conversations.length) { list.innerHTML = '<div class="conv-empty">No chats yet</div>'; return; }
+  list.innerHTML = conversations.map(function(c) {
+    return '<div class="conv-item ' + (c.id === activeConvId ? 'active' : '') + '" onclick="selectConv(\'' + c.id + '\')">'
+      + '<span style="font-size:0.75rem;">💬</span>'
+      + '<span class="conv-title">' + escapeHtml(c.title) + '</span>'
+      + '<button class="conv-delete" onclick="deleteConv(event,\'' + c.id + '\')">🗑</button>'
+      + '</div>';
+  }).join('');
+}
+async function selectConv(id) {
+  activeConvId = id;
+  closeSidebar();
+  var r = await sb.from('messages').select('*').eq('conversation_id', id).order('created_at', { ascending: true });
+  messages = (r.data || []).map(function(m) { return { id: m.id, role: m.role, content: m.content }; });
+  renderMessages();
+  renderSidebar();
+}
+async function deleteConv(e, id) {
+  e.stopPropagation();
+  await sb.from('conversations').delete().eq('id', id);
+  conversations = conversations.filter(function(c) { return c.id !== id; });
+  if (activeConvId === id) { activeConvId = null; messages = []; renderMessages(); }
+  renderSidebar();
+}
+function newChat() { activeConvId = null; messages = []; renderMessages(); closeSidebar(); renderSidebar(); }
+
+// ── MESSAGES ──
+function renderMessages() {
+  var area = document.getElementById('messages-area');
+  var empty = document.getElementById('empty-state');
+  if (!messages.length) {
+    area.innerHTML = '';
+    area.appendChild(empty);
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+  area.innerHTML = messages.map(function(m) { return renderMsgHTML(m); }).join('');
+  area.scrollTop = area.scrollHeight;
+}
+function renderMsgHTML(msg) {
+  if (msg.role === 'user') {
+    return '<div class="msg-row user"><div class="msg-bubble user" style="white-space:pre-wrap;">' + escapeHtml(msg.content) + '</div><div class="msg-avatar user-av">U</div></div>';
+  }
+  var cursor = msg.streaming ? '<span class="cursor-blink"></span>' : '';
+  return '<div class="msg-row" id="msg-' + msg.id + '"><div class="msg-avatar ai">⚡</div><div class="msg-bubble ai" id="bubble-' + msg.id + '">' + renderMarkdown(msg.content) + cursor + '</div></div>';
+}
+function renderMarkdown(text) {
+  var parts = []; var reg = /```(\w*)\n?([\s\S]*?)```/g; var last = 0; var m;
+  while ((m = reg.exec(text)) !== null) {
+    if (m.index > last) parts.push('<span style="white-space:pre-wrap;">' + renderInline(escapeHtml(text.slice(last, m.index))) + '</span>');
+    var lang = m[1] || 'code'; var code = escapeHtml(m[2].trim());
+    var bid = 'cb' + Math.random().toString(36).slice(2);
+    parts.push('<div class="code-block"><div class="code-header"><span class="code-lang">' + lang + '</span><button class="copy-btn" onclick="copyCode(\'' + bid + '\')">⎘ Copy</button></div><pre><code id="' + bid + '">' + code + '</code></pre></div>');
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push('<span style="white-space:pre-wrap;">' + renderInline(escapeHtml(text.slice(last))) + '</span>');
+  return parts.join('');
+}
+function renderInline(html) { return html.replace(/`([^`]+)`/g, '<code>$1</code>'); }
+function copyCode(id) {
+  var el = document.getElementById(id);
+  if (el) navigator.clipboard.writeText(el.textContent).then(function() { showToast('Copied!', 'success'); });
+}
+
+// ── SEND ──
+document.getElementById('chat-input').addEventListener('input', function() {
+  var v = this.value.trim();
+  document.getElementById('send-btn').disabled = !v || isLoading;
+});
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 180) + 'px'; }
+function sendStarter(text) { document.getElementById('chat-input').value = text; autoResize(document.getElementById('chat-input')); sendMessage(); }
+
+async function sendMessage() {
+  var input = document.getElementById('chat-input');
+  var text = input.value.trim();
+  if (!text || isLoading || !currentUser || !currentSession) return;
+  input.value = ''; input.style.height = 'auto';
+  document.getElementById('send-btn').disabled = true;
+  isLoading = true;
+
+  var convId = activeConvId;
+  if (!convId) {
+    var convR = await sb.from('conversations').insert({ user_id: currentUser.id, title: text.slice(0, 40) }).select().single();
+    if (convR.error || !convR.data) { showToast('Failed to create conversation', 'error'); isLoading = false; return; }
+    convId = convR.data.id; activeConvId = convId;
+    conversations.unshift(convR.data); renderSidebar();
+  }
+
+  messages.push({ id: crypto.randomUUID(), role: 'user', content: text });
+  var allMsgs = messages.slice();
+  renderMessages();
+
+  var area = document.getElementById('messages-area');
+  var typingId = 'typing' + Date.now();
+  area.insertAdjacentHTML('beforeend', '<div class="msg-row" id="' + typingId + '"><div class="msg-avatar ai">⚡</div><div class="msg-bubble ai"><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div>');
+  area.scrollTop = area.scrollHeight;
+
+  try {
+    var resp = await fetch(SUPABASE_URL + '/functions/v1/infamous-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentSession.access_token },
+      body: JSON.stringify({ messages: allMsgs.map(function(m) { return { role: m.role, content: m.content }; }) })
+    });
+    var typEl = document.getElementById(typingId);
+    if (typEl) typEl.remove();
+
+    if (!resp.ok) {
+      var d = await resp.json().catch(function() { return { error: 'Request failed' }; });
+      if (d.limitReached) {
+        messages.pop(); renderMessages();
+        showToast('Daily limit reached! Upgrade your plan.', 'error');
+        isLoading = false;
+        document.getElementById('send-btn').disabled = false;
+        return;
+      }
+      throw new Error(d.error || 'Error ' + resp.status);
+    }
+
+    await sb.from('messages').insert({ conversation_id: convId, user_id: currentUser.id, role: 'user', content: text });
+    if (allMsgs.filter(function(m) { return m.role === 'user'; }).length === 1) {
+      await sb.from('conversations').update({ title: text.slice(0, 40), updated_at: new Date().toISOString() }).eq('id', convId);
+      var c = conversations.find(function(x) { return x.id === convId; });
+      if (c) c.title = text.slice(0, 40);
+      renderSidebar();
+    }
+    profile.usedToday++; updateUsageUI();
+
+    var reader = resp.body.getReader(); var decoder = new TextDecoder();
+    var buf = '', accumulated = '', assistantId = crypto.randomUUID(), started = false;
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
+      var nl;
+      while ((nl = buf.indexOf('\n')) !== -1) {
+        var line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (!line.startsWith('data: ')) continue;
+        var json = line.slice(6).trim();
+        if (json === '[DONE]') break;
+        try {
+          var parsed = JSON.parse(json);
+          var delta = parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content;
+          if (delta) {
+            accumulated += delta;
+            if (!started) {
+              started = true;
+              messages.push({ id: assistantId, role: 'assistant', content: accumulated, streaming: true });
+              area.insertAdjacentHTML('beforeend', '<div class="msg-row" id="msg-' + assistantId + '"><div class="msg-avatar ai">⚡</div><div class="msg-bubble ai" id="bubble-' + assistantId + '"></div></div>');
+            }
+            var bubble = document.getElementById('bubble-' + assistantId);
+            if (bubble) bubble.innerHTML = renderMarkdown(accumulated) + '<span class="cursor-blink"></span>';
+            area.scrollTop = area.scrollHeight;
+          }
+        } catch(ex) { buf = line + '\n' + buf; break; }
+      }
+    }
+    var finalBubble = document.getElementById('bubble-' + assistantId);
+    if (finalBubble) finalBubble.innerHTML = renderMarkdown(accumulated);
+    var idx = messages.findIndex(function(m) { return m.id === assistantId; });
+    if (idx !== -1) { messages[idx].content = accumulated; delete messages[idx].streaming; }
+    if (accumulated && convId) await sb.from('messages').insert({ conversation_id: convId, user_id: currentUser.id, role: 'assistant', content: accumulated });
+  } catch(err) {
+    var te = document.getElementById(typingId);
+    if (te) te.remove();
+    area.insertAdjacentHTML('beforeend', '<div class="error-box">⚠ ' + escapeHtml((err && err.message) || 'Something went wrong') + '</div>');
+  }
+  isLoading = false;
+  document.getElementById('send-btn').disabled = !document.getElementById('chat-input').value.trim();
+  area.scrollTop = area.scrollHeight;
+}
+
+// ── UPGRADE MODAL ──
+var upgradeStep = 'select', selectedPlan = 'dirt';
+function openUpgrade() { upgradeStep = 'select'; selectedPlan = 'dirt'; renderModal(); document.getElementById('upgrade-modal').style.display = 'flex'; }
+function closeUpgrade() { document.getElementById('upgrade-modal').style.display = 'none'; }
+function renderModal() {
+  var body = document.getElementById('modal-body');
+  if (upgradeStep === 'success') {
+    body.innerHTML = '<div class="success-state"><div style="font-size:2.5rem;margin-bottom:1rem;">✅</div><div style="font-weight:700;font-size:1.1rem;margin-bottom:0.5rem;">Request Submitted!</div><p style="font-size:0.8rem;color:var(--muted);">Your upgrade request for <b>' + selectedPlan + '</b> plan has been sent. It will be activated within a few hours.</p><button class="modal-btn outline" onclick="closeUpgrade()" style="margin-top:1.5rem;">Close</button></div>';
+    return;
+  }
+  if (upgradeStep === 'select') {
+    body.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;">Choose your new plan:</p>'
+      + '<div class="plan-grid">'
+      + '<div class="plan-card dirt ' + (selectedPlan==='dirt'?'selected':'') + '" onclick="selectPlan(\'dirt\')">'
+      + '<div class="plan-card-name" style="color:var(--amber);">DIRT</div>'
+      + '<div class="plan-card-price">₹69<span style="font-size:0.7rem;font-weight:400;color:var(--muted);">/mo</span></div>'
+      + '<div class="plan-card-msgs">25 msg/day</div></div>'
+      + '<div class="plan-card bedrock ' + (selectedPlan==='bedrock'?'selected':'') + '" onclick="selectPlan(\'bedrock\')">'
+      + '<div class="plan-card-name" style="color:var(--violet);">BEDROCK</div>'
+      + '<div class="plan-card-price">₹169<span style="font-size:0.7rem;font-weight:400;color:var(--muted);">/mo</span></div>'
+      + '<div class="plan-card-msgs">50 msg/day</div></div></div>'
+      + '<button class="modal-btn ' + selectedPlan + '" onclick="upgradeStep=\'qr\';renderModal()">Continue to Payment →</button>';
+    return;
+  }
+  if (upgradeStep === 'qr') {
+    var price = selectedPlan === 'dirt' ? 69 : 169;
+    var col = selectedPlan === 'dirt' ? 'var(--amber)' : 'var(--violet)';
+    var qrSrc = selectedPlan === 'dirt' ? QR_DIRT : QR_BEDROCK;
+    var qrHtml = qrSrc
+      ? '<img src="' + qrSrc + '" style="width:192px;height:192px;border-radius:0.75rem;object-fit:contain;" />'
+      : '<div class="qr-placeholder">📱<br/>Add your UPI QR here<br/><span style="font-size:0.65rem;opacity:0.5;">(Set QR_DIRT/QR_BEDROCK in config)</span></div>';
+    body.innerHTML = '<div style="padding:0.75rem;border-radius:0.75rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-bottom:1rem;">'
+      + '<div style="font-size:0.7rem;font-weight:700;color:' + col + ';">' + selectedPlan.toUpperCase() + ' PLAN</div>'
+      + '<div style="font-size:1.4rem;font-weight:900;">₹' + price + '<span style="font-size:0.75rem;color:var(--muted);font-weight:400;">/mo</span></div></div>'
+      + '<div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">' + qrHtml
+      + '<p style="font-size:0.75rem;color:var(--muted);">Scan & pay ₹' + price + ' via UPI</p></div>'
+      + '<button class="modal-btn ' + selectedPlan + '" onclick="upgradeStep=\'verify\';renderModal()">I\'ve Paid →</button>'
+      + '<button class="modal-btn outline" onclick="upgradeStep=\'select\';renderModal()">← Back</button>';
+    return;
+  }
+  if (upgradeStep === 'verify') {
+    body.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;">Enter your UPI transaction ID:</p>'
+      + '<input type="text" id="txn-input" class="input" placeholder="e.g. 407812345678" />'
+      + '<p style="font-size:0.72rem;color:var(--muted);margin-top:0.5rem;">Your plan will be activated within a few hours.</p>'
+      + '<button class="modal-btn ' + selectedPlan + '" id="submit-txn-btn" onclick="submitUpgrade()">Submit Request</button>'
+      + '<button class="modal-btn outline" onclick="upgradeStep=\'qr\';renderModal()">← Back</button>';
+  }
+}
+function selectPlan(p) { selectedPlan = p; renderModal(); }
+async function submitUpgrade() {
+  var txn = document.getElementById('txn-input') && document.getElementById('txn-input').value.trim();
+  if (!txn || !currentUser) return;
+  var btn = document.getElementById('submit-txn-btn');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Submitting...';
+  var r = await sb.from('upgrade_requests').insert({ user_id: currentUser.id, requested_plan: selectedPlan, transaction_id: txn });
+  if (r.error) { showToast('Failed to submit. Try again.', 'error'); btn.disabled = false; btn.textContent = 'Submit Request'; }
+  else { upgradeStep = 'success'; renderModal(); }
+}
+
+// ── SIDEBAR MOBILE ──
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-overlay').classList.toggle('active'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-overlay').classList.remove('active'); }
+
+// ── UTILS ──
+function escapeHtml(s) { var d = document.createElement('div'); d.appendChild(document.createTextNode(s || '')); return d.innerHTML; }
+function showToast(msg, type) {
+  var t = document.createElement('div');
+  t.className = 'toast ' + (type || 'success');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { t.remove(); }, 3500);
+}
+</script>
+</body>
+</html>
